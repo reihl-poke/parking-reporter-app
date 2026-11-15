@@ -6,6 +6,33 @@ Every release gets a `v<version>` git tag, a matching entry here, and release no
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-15
+
+### Features
+
+- feat(ocr): optional Tesseract digit whitelist, off by default, plus benchmark variant (#435) (#440) (1b3ad72)
+- feat(ocr): Google ML Kit is the default engine, Tesseract is a Settings-only choice (#210) (#437) (6b93177)
+- feat(review): suggest the description from the approved templates in the review screen (#424, slice 2b) (#434) (aa9e677)
+- feat(core): approved Hebrew templates, shipped mapping and template session (#424, slice 2a) (#430) (45a5db2)
+- feat(review): experimental on-device sidewalk-parking suggestion, pri… (#421) (d7e15c5)
+- feat(review): read the plate type from the typed text, remove the type picker (#428 rebased onto main after #427) (#428) (79a4ff4)
+- feat(core): description template engine - parts, per-sentence untouch… (#425) (69dc486)
+- feat(review): plate type picker hidden by default in edit mode, shown… (#427) (f23c61a)
+
+### Fixes
+
+- fix(plate): match the plate as a whole token in the report text (#417) (#438) (b329542)
+- fix(review): the rotation holder and the shell each keep their own timestamp (#419) (#439) (8d44574)
+- fix(ocr): accept the separators and flag letter ML Kit really returns in plate candidates (#436) (fac8a5d)
+- fix(review): test the late-fix guard and document when freshCapture is evaluated (#423) (#429) (55a6ae2)
+- fix(live-e2e): wake, unlock and clear system dialogs before the flow; dry check in normal emulator CI (#426) (93a353d)
+
+### Other changes
+
+- chore(ocr): remove the Tesseract digit whitelist option, it did not help (#435) (#441) (360c7a1)
+- ci(live): stage the encrypted input bundle for the next owner-requested live app submission (#433) (20481de)
+- docs(github): PR template asks for a docs check (README, design, accessibility, wiki source) or a linked docs issue (#431) (23766fc)
+
 ## [0.49.0] - 2026-11-13
 
 ### Features
