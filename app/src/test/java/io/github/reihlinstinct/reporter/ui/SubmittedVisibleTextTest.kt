@@ -14,19 +14,27 @@ class SubmittedVisibleTextTest {
         number, "id-synthetic-1", "web-synthetic-2")
 
     @Test fun releaseShowsTheServerCaseNumberVerbatimAndNothingElse() {
-        val text = submittedReceiptText(strings, submitted("2611-0000001"), debug = false)!!
+        val text = submittedReceiptText(strings, submitted("2611-0000001"), debug = false)
         assertTrue(text.contains("2611-0000001"))
         assertTrue(text.contains("מספר קריאה"))
         assertFalse(text.contains("id-synthetic-1"))
         assertFalse(text.contains("web-synthetic-2"))
     }
 
-    @Test fun releaseWithoutANumberShowsNoReceiptLine() {
-        assertEquals(null, submittedReceiptText(strings, submitted(null), debug = false))
+    @Test fun nullNumberShowsHonestLineAndNeverInventsOne() {
+        val release = submittedReceiptText(strings, submitted(null), debug = false)
+        assertEquals("נשלח לעירייה. המספר טרם הוקצה", release)
+        assertFalse(release.contains("מספר קריאה"))
+        assertFalse(release.contains("id-synthetic-1"))
+        val debug = submittedReceiptText(strings, submitted(null), debug = true)
+        assertTrue(debug.startsWith("נשלח לעירייה. המספר טרם הוקצה"))
+        assertTrue(debug.contains("CaseIdInCRM: id-synthetic-1"))
+        assertTrue(debug.contains("WebCaseIdInCRM: web-synthetic-2"))
+        assertFalse(debug.contains("מספר קריאה"))
     }
 
     @Test fun debugAddsTheOtherReturnedReferencesVerbatim() {
-        val text = submittedReceiptText(strings, submitted("2611-0000001"), debug = true)!!
+        val text = submittedReceiptText(strings, submitted("2611-0000001"), debug = true)
         assertTrue(text.contains("2611-0000001"))
         assertTrue(text.contains("CaseIdInCRM: id-synthetic-1"))
         assertTrue(text.contains("WebCaseIdInCRM: web-synthetic-2"))
