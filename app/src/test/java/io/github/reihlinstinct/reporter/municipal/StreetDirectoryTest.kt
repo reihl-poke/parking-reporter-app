@@ -122,4 +122,68 @@ class StreetDirectoryTest {
             assertTrue(e.message!!.contains("absent"))
         }
     }
+
+    private fun tailFixture(extraStreet: String = "") = StreetDirectory.load("""
+        {"version": 1,
+         "streets": [
+           {"StreetCode": "1787", "StreetName": "גנרל פייר קניג"},
+           {"StreetCode": "728", "StreetName": "י.ל. דיסקין"}$extraStreet
+         ],
+         "addresses": [
+           [31.7683, 35.2137, "33", "פייר קניג"],
+           [31.77, 35.214, "7", "דיסקין"]
+         ]}
+    """.trimIndent())
+
+    @Test fun pointNamedWithTheTailOfTheStreetNameResolvesForExplicitLookup() {
+        val d = tailFixture()
+        assertEquals("גנרל פייר קניג 33", d.findConfirmedAddress("גנרל פייר קניג", "33").address)
+        assertEquals("י.ל. דיסקין 7", d.findConfirmedAddress("י.ל. דיסקין", "7").address)
+    }
+
+    private fun refused(block: () -> Unit): MunicipalInputException {
+        try { block() } catch (e: MunicipalInputException) { return e }
+        throw AssertionError("expected MunicipalInputException")
+    }
+
+    @Test fun tailMatchStaysUniqueAndHouseExact() {
+        val absent = refused { tailFixture().findConfirmedAddress("גנרל פייר קניג", "40") }
+        assertTrue(absent.message!!.contains("absent"))
+        val ambiguous = tailFixture(""", {"StreetCode": "9", "StreetName": "רחוב פייר קניג"}""")
+        assertTrue(refused { ambiguous.findConfirmedAddress("גנרל פייר קניג", "33") }.message!!.contains("absent"))
+    }
+
+    private fun mixedFixture() = StreetDirectory.load("""
+        {"version": 1,
+         "streets": [{"StreetCode": "1787", "StreetName": "גנרל פייר קניג"}],
+         "addresses": [
+           [31.7683, 35.2137, "5", "גנרל פייר קניג"],
+           [31.7684, 35.2138, "5", "פייר קניג"],
+           [31.7686, 35.2142, "7", "פייר קניג"],
+           [31.80, 35.25, "9", "פייר קניג"]
+         ]}
+    """.trimIndent())
+
+    @Test fun exactPointsWinOverTailPointsForTheSameHouse() {
+        // A short-name point for house 5 with different coordinates must not turn a working address into "multiple points".
+        val location = mixedFixture().findConfirmedAddress("גנרל פייר קניג", "5")
+        assertEquals(31.7683, location.latitude, 0.0)
+    }
+
+    @Test fun tailPointNearExactPointsIsUsedAndFarOneIsNot() {
+        val d = mixedFixture()
+        assertEquals(31.7686, d.findConfirmedAddress("גנרל פייר קניג", "7").latitude, 0.0)
+        assertTrue(refused { d.findConfirmedAddress("גנרל פייר קניג", "9") }.message!!.contains("absent"))
+    }
+
+    @Test fun tailPointNeverSatisfiesGpsOnlyAutoResolution() {
+        val d = tailFixture()
+        val e = refused { d.resolve(null, null, 31.7683 to 35.2137) }
+        assertTrue(e.message!!.contains("GPS does not identify one clear address"))
+    }
+
+    @Test fun explicitStreetWithGpsStillGuardsTailPointsAt200m() {
+        val e = refused { tailFixture().resolve("גנרל פייר קניג", "33", 31.80 to 35.25) }
+        assertTrue(e.message!!.contains("200 m"))
+    }
 }
