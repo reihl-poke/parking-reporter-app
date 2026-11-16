@@ -105,7 +105,7 @@ fun AppShell(
     val rotated = remember { ReviewRotationState.takeShell() }
     var page by remember { mutableStateOf(if (rotated != null) "review" else "home") }
     var profile by remember { mutableStateOf<ReporterSettings?>(null) }
-    // Debug-only server receipt line for the success screen; always null in release.
+    // Server receipt line for the success screen (case number in every build, extra references in debug).
     var submittedReceipt by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf<ReviewDraft?>(rotated?.draft) }
     var original by remember { mutableStateOf<File?>(rotated?.original) }
@@ -297,15 +297,14 @@ fun AppShell(
                 submissionNote = municipalOutcomeText(strings, outcome)
                 if (outcome is SubmissionCoordinator.Outcome.Submitted ||
                     outcome is SubmissionCoordinator.Outcome.AlreadySubmitted) {
-                    if (outcome is SubmissionCoordinator.Outcome.Submitted) {
-                        // The server receipt is debug-only everywhere: the shell status slot and
-                        // the review note get the plain title in release.
-                        submissionNote = submittedVisibleText(BuildConfig.DEBUG, submissionNote, strings.t("shell.submit.sent_plain"))
+                    // No number in the response: release keeps the plain title, not "received" in place of a number.
+                    if (outcome is SubmissionCoordinator.Outcome.Submitted && outcome.caseNumber == null && !BuildConfig.DEBUG) {
+                        submissionNote = strings.t("shell.submit.sent_plain")
                     }
                     status = submissionNote
                     topicSnapshot = topicRepository.snapshot()
                     if (outcome is SubmissionCoordinator.Outcome.Submitted) {
-                        submittedReceipt = if (BuildConfig.DEBUG) municipalOutcomeText(strings, outcome) else null
+                        submittedReceipt = submittedReceiptText(strings, outcome, BuildConfig.DEBUG)
                         page = "submitted"
                     }
                 }
@@ -730,9 +729,16 @@ internal fun missingCredentialsSuffix(strings: Strings, missingFields: List<Stri
     return ": " + labels.joinToString(", ") { strings.t(it) }
 }
 
-/** Debug builds show the server receipt text; release builds show only [neutral]. */
-internal fun submittedVisibleText(debug: Boolean, receiptText: String, neutral: String): String =
-    if (debug) receiptText else neutral
+/**
+ * The line under the success screen: the case number exactly as the city's CreateCase response returned it
+ * (CaseNumberInCRM), in every build. Debug builds add the other two returned references (CaseIdInCRM,
+ * WebCaseIdInCRM) verbatim. Null in release when the response carried no number, so the plain title stays alone.
+ */
+internal fun submittedReceiptText(strings: Strings, outcome: SubmissionCoordinator.Outcome.Submitted, debug: Boolean): String? {
+    if (!debug) return if (outcome.caseNumber == null) null else municipalOutcomeText(strings, outcome)
+    return municipalOutcomeText(strings, outcome) +
+        "\nCaseIdInCRM: " + (outcome.caseId ?: "-") + "\nWebCaseIdInCRM: " + (outcome.webCaseId ?: "-")
+}
 
 internal fun municipalOutcomeText(strings: Strings, outcome: SubmissionCoordinator.Outcome): String = when (outcome) {
     is SubmissionCoordinator.Outcome.Submitted ->
