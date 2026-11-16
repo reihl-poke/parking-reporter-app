@@ -419,6 +419,16 @@ internal class FlowDriver(private val compose: ComposeTestRule) {
         true
     } catch (e: ComposeTimeoutException) { false }
 
+    /** Before API 30 the compat isVisible(ime) is an estimate that never reports hidden (weekly API 29
+     *  run 43710836441), so ask the input method service itself. */
+    private fun imeShownByInputMethodService(): Boolean {
+        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("dumpsys input_method")
+        val text = android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).bufferedReader().use { it.readText() }
+        // A changed dump format must not read as "hidden".
+        check(text.contains("mInputShown=")) { "dumpsys input_method has no mInputShown field" }
+        return text.contains("mInputShown=true")
+    }
+
     /**
      * Hides the IME through the window insets controller - never a Back key,
      * so it can never navigate away from the flow - then waits (bounded) for
@@ -431,11 +441,19 @@ internal class FlowDriver(private val compose: ComposeTestRule) {
         val rule = compose as? AndroidComposeTestRule<*, *> ?: return true
         val decorView = rule.activity.window.decorView
         rule.runOnUiThread {
-            ViewCompat.getWindowInsetsController(decorView)?.hide(WindowInsetsCompat.Type.ime())
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+                // Before API 30 the compat controller lookup can return null for a DecorContext and
+                // silently skip the hide (#471). The input method manager hides it without a Back key.
+                val imm = rule.activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                imm.hideSoftInputFromWindow(decorView.windowToken, 0)
+            } else {
+                ViewCompat.getWindowInsetsController(decorView)?.hide(WindowInsetsCompat.Type.ime())
+            }
         }
         return try {
             compose.waitUntil(IME_HIDE_WAIT_MS) {
-                rule.runOnUiThread {
+                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) !imeShownByInputMethodService()
+                else rule.runOnUiThread {
                     ViewCompat.getRootWindowInsets(decorView)?.isVisible(WindowInsetsCompat.Type.ime()) != true
                 }
             }
